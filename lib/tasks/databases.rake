@@ -1,3 +1,5 @@
+require 'shard_the_love/lib/active_record/base'
+
 namespace :db do
 
   namespace :directory do
