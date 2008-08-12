@@ -1,3 +1,3 @@
 # Nothing yet
-require 'data_fabric'
-require 'active_record/base'
+require RAILS_ROOT+'/lib/shard_the_love/lib/data_fabric'
+require RAILS_ROOT+'/lib/shard_the_love/lib/active_record/base'
