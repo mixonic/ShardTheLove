@@ -1,3 +1,3 @@
 # Nothing yet
-require 'lib/data_fabric'
-require 'lib/active_record/base'
+require 'data_fabric'
+require 'active_record/base'
