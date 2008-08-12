@@ -108,7 +108,8 @@ module DataFabric
   end
   
   def connection_name
-   @connection_name || raise 'A shard must be selected'
+    raise( 'A shard must be selected' ) unless @connection_name
+    @connection_name
   end
   
   def use_directory
