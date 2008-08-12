@@ -95,17 +95,17 @@ module DataFabric
     Thread.current[:shards] = {} unless Thread.current[:shards]
   end
 
-  def use_directory
+  def self.use_directory
     @@connection_name = 'directory'
     self
   end
   
-  def use_shard( shard )
+  def self.use_shard( shard )
     @@connection_name = shard
     self
   end
 
-  def connection_name
+  def self.connection_name
     raise( 'A shard must be selected' ) unless @@connection_name
     @@connection_name
   end
