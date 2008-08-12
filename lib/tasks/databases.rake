@@ -33,6 +33,7 @@ namespace :db do
     task :migrate => :environment do
       ActiveRecord::Base.configurations.each do |name,config|
         if name.to_s =~ /^#{RAILS_ENV}_.*/
+          next if name.to_s == "#{RAILS_ENV}_directory"
           ActiveRecord::Base.establish_connection( name )
           ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : true
           ActiveRecord::Migrator.migrate("db/migrate_shards/", ENV["VERSION"] ? ENV["VERSION"].to_i : nil)
@@ -50,6 +51,7 @@ namespace :db do
         require 'active_record/schema_dumper'
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^#{RAILS_ENV}_.*/
+            next if name.to_s == "#{RAILS_ENV}_directory"
             File.open(ENV['SCHEMA'] || "db/shards_schema.rb", "w") do |file|
               ActiveRecord::SchemaDumper.dump(ActiveRecord::Base.connection, file)
             end
