@@ -1,4 +1,4 @@
-require 'shard_the_love/lib/active_record/base'
+#require 'shard_the_love/lib/active_record/base'
 
 namespace :db do
 
