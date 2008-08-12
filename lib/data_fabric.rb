@@ -97,8 +97,8 @@ module DataFabric
   
   # Class methods injected into ActiveRecord::Base
   module ClassMethods
-    def data_fabric(options)
-      proxy = DataFabric::ConnectionProxy.new(self, options)
+    def data_fabric
+      proxy = DataFabric::ConnectionProxy.new(self)
       ActiveRecord::Base.active_connections[name] = proxy
       
       raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
@@ -132,7 +132,7 @@ module DataFabric
   end
 
   class ConnectionProxy
-    def initialize(model_class, options)
+    def initialize(model_class)
       @model_class = model_class      
       @cached_connection = nil
       @current_connection_name = nil
