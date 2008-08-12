@@ -94,6 +94,21 @@ module DataFabric
   def self.ensure_setup
     Thread.current[:shards] = {} unless Thread.current[:shards]
   end
+
+  def use_directory
+    @@connection_name = 'directory'
+    self
+  end
+  
+  def use_shard( shard )
+    @@connection_name = shard
+    self
+  end
+
+  def connection_name
+    raise( 'A shard must be selected' ) unless @@connection_name
+    @@connection_name
+  end
   
   # Class methods injected into ActiveRecord::Base
   module ClassMethods
@@ -105,23 +120,9 @@ module DataFabric
       DataFabric.logger.info "Creating data_fabric proxy for class #{name}"
     end
     alias :connection_topology :data_fabric # legacy
+    
   end
-  
-  def connection_name
-    raise( 'A shard must be selected' ) unless @connection_name
-    @connection_name
-  end
-  
-  def use_directory
-    @connection_name = 'directory'
-    self
-  end
-  
-  def use_shard( shard )
-    @connection_name = shard
-    self
-  end
-  
+   
   class StringProxy
     def initialize(&block)
       @proc = block
