@@ -50,20 +50,16 @@ module DataFabric
     (Thread.current[:data_fabric_connections] ||= {}).clear
   end
   
-  def self.activate_shard(shards, &block)
-    ensure_setup
-
+  def self.activate_shard(shard, &block)
     # Save the old shard settings to handle nested activation
-    old = Thread.current[:shards].dup
+    old = Thread.current[:shard].dup
 
-    shards.each_pair do |key, value|
-      Thread.current[:shards][key.to_s] = value.to_s
-    end
+    Thread.current[:shard] = shard
     if block_given?
       begin
         yield
       ensure
-        Thread.current[:shards] = old
+        Thread.current[:shard] = old
       end
     end
   end
@@ -72,17 +68,14 @@ module DataFabric
   # clean up the thread local settings by calling this method at the
   # end of processing
   def self.deactivate_shard(shards)
-    ensure_setup
-    shards.each do |key, value|
-      Thread.current[:shards].delete(key.to_s)
-    end
+    Thread.current.delete(:shard)
   end
   
-  def self.active_shard(group)
-    raise ArgumentError, 'No shard has been activated' unless Thread.current[:shards]
+  def self.active_shard()
+    raise ArgumentError, 'No shard has been activated' unless Thread.current[:shard]
 
-    returning(Thread.current[:shards][group.to_s]) do |shard|
-      raise ArgumentError, "No active shard for #{group}" unless shard
+    returning(Thread.current[:shard]) do |shard|
+      raise ArgumentError, "No active shard" unless shard
     end
   end
   
@@ -91,34 +84,44 @@ module DataFabric
     model.extend ClassMethods
   end
 
-  def self.ensure_setup
-    Thread.current[:shards] = {} unless Thread.current[:shards]
-  end
- 
   # Class methods injected into ActiveRecord::Base
   module ClassMethods
-    def data_fabric
+    def acts_as_shard
       proxy = DataFabric::ConnectionProxy.new(self)
       ActiveRecord::Base.active_connections[name] = proxy
       
       raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
       DataFabric.logger.info "Creating data_fabric proxy for class #{name}"
     end
-    alias :connection_topology :data_fabric # legacy
-    
-    def use_directory
-      @@connection_name = 'directory'
-      self
+
+    def acts_as_directory
+      proxy = DataFabric::ConnectionProxy.new(self)
+      ActiveRecord::Base.active_connections[name] = proxy
+      self.mark_as_directory
+      
+      raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
+      DataFabric.logger.info "Creating data_fabric proxy for class #{name}"
     end
-    
+     
     def use_shard( shard )
-      @@connection_name = shard
+      @@available_connections ||= {}
+      @@available_connections[self.to_s] = shard
+      @@connection_name = @@available_connections[self.to_s]
       self
     end
 
     def connection_name
+      return 'directory' if @@directories.include?( self.to_s )
+      my_connection = @@available_connections[self.to_s]
+      puts "** #{self.to_s} + #{my_connection} + #{@@connection_name}"
+      return my_connection if my_connection
       raise( 'A shard must be selected' ) unless @@connection_name
-      @@connection_name
+      return @@connection_name
+    end
+
+    def mark_as_directory
+      @@acting_as_directories ||= []
+      @@acting_as_directories << self.to_s
     end
   end
    
@@ -136,9 +139,6 @@ module DataFabric
       @model_class = model_class      
       @cached_connection = nil
       @current_connection_name = nil
-      @role_changed = false
-
-      @model_class.send :include, ActiveRecordConnectionMethods if @replicated
     end
     
     def transaction(start_db_transaction = true, &block)
@@ -146,14 +146,21 @@ module DataFabric
     end
 
     def method_missing(method, *args, &block)
-      unless @cached_connection and !@role_changed
+      unless @cached_connection
         raw_connection
-        @role_changed = false
       end
       if logger.debug?
         logger.debug("Calling #{method} on #{@cached_connection}")
       end
-      raw_connection.send(method, *args, &block)
+      begin
+        raw_connection.send(method, *args, &block)
+      rescue ActiveRecord::StatementInvalid => e
+        if e =~ /^Mysql::Error: MySQL server has gone away:/
+          @cached_connection = nil
+          raw_connection
+          raw_connection.send(method, *args, &block)
+        end
+      end
     end
     
     def connection_name
@@ -208,3 +215,5 @@ module DataFabric
   end
 
 end
+
+ActiveRecord::Base.send( :include, DataFabric )
