@@ -1,40 +1,6 @@
 require 'active_record'
 require 'active_record/version'
 
-# DataFabric adds a new level of flexibility to ActiveRecord connection handling.
-# You need to describe the topology for your database infrastructure in your model(s).  As with ActiveRecord normally, different models can use different topologies.
-# 
-# class MyHugeVolumeOfDataModel < ActiveRecord::Base
-#   data_fabric :replicated => true, :shard_by => :city
-# end
-# 
-# There are four supported modes of operation, depending on the options given to the data_fabric method.  The plugin will look for connections in your config/database.yml with the following convention:
-# 
-# No connection topology:
-# #{environment} - this is the default, as with ActiveRecord, e.g. "production"
-# 
-# data_fabric :replicated => true
-# #{environment}_#{role} - no sharding, just replication, where role is "master" or "slave", e.g. "production_master"
-# 
-# data_fabric :shard_by => :city
-# #{group}_#{shard}_#{environment} - sharding, no replication, e.g. "city_austin_production"
-# 
-# data_fabric :replicated => true, :shard_by => :city
-# #{group}_#{shard}_#{environment}_#{role} - sharding with replication, e.g. "city_austin_production_master"
-# 
-# 
-# When marked as replicated, all write and transactional operations for the model go to the master, whereas read operations go to the slave.
-# 
-# Since sharding is an application-level concern, your application must set the shard to use based on the current request or environment.  The current shard for a group is set on a thread local variable.  For example, you can set the shard in an ActionController around_filter based on the user as follows:
-# 
-# class ApplicationController < ActionController::Base
-#   around_filter :select_shard
-#   
-#   private
-#   def select_shard(&action_block)
-#     DataFabric.activate_shard(:city => @current_user.city, &action_block)
-#   end
-# end
 module DataFabric
   
   def self.logger
@@ -42,7 +8,7 @@ module DataFabric
   end
 
   def self.init
-    logger.info "Loading data_fabric #{DataFabric::Version::STRING} with ActiveRecord #{ActiveRecord::VERSION::STRING}"
+    logger.info "Loading data_fabric with ActiveRecord #{ActiveRecord::VERSION::STRING}"
     ActiveRecord::Base.send(:include, self)
   end
   
@@ -50,16 +16,16 @@ module DataFabric
     (Thread.current[:data_fabric_connections] ||= {}).clear
   end
   
-  def self.activate_shard(shard, &block)
+  def self.using_shard(shard, &block)
     # Save the old shard settings to handle nested activation
-    old = Thread.current[:shard].dup
+    old = Thread.current[:shard].dup rescue false
 
     Thread.current[:shard] = shard
     if block_given?
       begin
         yield
       ensure
-        Thread.current[:shard] = old
+        Thread.current[:shard] = old if old
       end
     end
   end
@@ -67,13 +33,11 @@ module DataFabric
   # For cases where you can't pass a block to activate_shards, you can
   # clean up the thread local settings by calling this method at the
   # end of processing
-  def self.deactivate_shard(shards)
+  def self.deactivate_shard
     Thread.current.delete(:shard)
   end
   
-  def self.active_shard()
-    raise ArgumentError, 'No shard has been activated' unless Thread.current[:shard]
-
+  def self.current_shard
     returning(Thread.current[:shard]) do |shard|
       raise ArgumentError, "No active shard" unless shard
     end
@@ -95,28 +59,14 @@ module DataFabric
     end
 
     def acts_as_directory
-      proxy = DataFabric::ConnectionProxy.new(self)
-      ActiveRecord::Base.active_connections[name] = proxy
+      self.acts_as_shard
       self.mark_as_directory
-      
-      raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
-      DataFabric.logger.info "Creating data_fabric proxy for class #{name}"
     end
      
-    def use_shard( shard )
-      @@available_connections ||= {}
-      @@available_connections[self.to_s] = shard
-      @@connection_name = @@available_connections[self.to_s]
-      self
-    end
-
     def connection_name
-      return 'directory' if @@directories.include?( self.to_s )
-      my_connection = @@available_connections[self.to_s]
-      puts "** #{self.to_s} + #{my_connection} + #{@@connection_name}"
-      return my_connection if my_connection
-      raise( 'A shard must be selected' ) unless @@connection_name
-      return @@connection_name
+      return 'directory' if @@acting_as_directories && @@acting_as_directories.include?( self.to_s )
+      raise( 'A shard must be selected' ) unless Thread.current[:shard]
+      return Thread.current[:shard]
     end
 
     def mark_as_directory
@@ -216,4 +166,3 @@ module DataFabric
 
 end
 
-ActiveRecord::Base.send( :include, DataFabric )
