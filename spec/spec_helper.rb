@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'spec'
-require 'lib/shard'
+require 'lib/shard_the_love'
 
 require 'mocha'
 

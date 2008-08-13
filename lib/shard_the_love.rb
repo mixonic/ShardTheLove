@@ -13,10 +13,10 @@ module ShardTheLove
   end
   
   def self.clear_connection_pool!
-    (Thread.current[:data_fabric_connections] ||= {}).clear
+    (Thread.current[:shard_the_love_connections] ||= {}).clear
   end
   
-  def self.using_shard(shard, &block)
+  def self.with_shard(shard, &block)
     # Save the old shard settings to handle nested activation
     old = Thread.current[:shard].dup rescue false
 
@@ -31,7 +31,7 @@ module ShardTheLove
   end
   
   class << self
-    alias :with :using_shard
+    alias :with :with_shard
   end
   
   # For cases where you can't pass a block to activate_shards, you can
@@ -134,7 +134,7 @@ module ShardTheLove
       conn_name = connection_name
       unless already_connected_to? conn_name 
         @cached_connection = begin 
-          connection_pool = (Thread.current[:data_fabric_connections] ||= {})
+          connection_pool = (Thread.current[:shard_the_love_connections] ||= {})
           conn = connection_pool[conn_name]
           if !conn
             if logger.debug?
