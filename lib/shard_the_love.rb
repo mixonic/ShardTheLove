@@ -1,7 +1,7 @@
 require 'active_record'
 require 'active_record/version'
 
-module DataFabric
+module ShardTheLove
   
   def self.logger
     ActiveRecord::Base.logger
@@ -30,6 +30,10 @@ module DataFabric
     end
   end
   
+  class << self
+    alias :with :using_shard
+  end
+  
   # For cases where you can't pass a block to activate_shards, you can
   # clean up the thread local settings by calling this method at the
   # end of processing
@@ -51,11 +55,11 @@ module DataFabric
   # Class methods injected into ActiveRecord::Base
   module ClassMethods
     def acts_as_shard
-      proxy = DataFabric::ConnectionProxy.new(self)
+      proxy = ShardTheLove::ConnectionProxy.new(self)
       ActiveRecord::Base.active_connections[name] = proxy
       
       raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
-      DataFabric.logger.info "Creating data_fabric proxy for class #{name}"
+      ShardTheLove.logger.info "Creating data_fabric proxy for class #{name}"
     end
 
     def acts_as_directory
@@ -160,7 +164,7 @@ module DataFabric
     end
     
     def logger
-      DataFabric.logger
+      ShardTheLove.logger
     end
   end
 
