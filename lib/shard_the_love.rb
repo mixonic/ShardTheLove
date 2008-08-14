@@ -8,7 +8,7 @@ module ShardTheLove
   end
 
   def self.init
-    logger.info "Loading data_fabric with ActiveRecord #{ActiveRecord::VERSION::STRING}"
+    logger.info "Loading ShardTheLove with ActiveRecord #{ActiveRecord::VERSION::STRING}"
     ActiveRecord::Base.send(:include, self)
   end
   
@@ -58,8 +58,8 @@ module ShardTheLove
       proxy = ShardTheLove::ConnectionProxy.new(self)
       ActiveRecord::Base.active_connections[name] = proxy
       
-      raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
-      ShardTheLove.logger.info "Creating data_fabric proxy for class #{name}"
+      raise ArgumentError, "ShardTheLove does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
+      ShardTheLove.logger.info "Creating ShardTheLove proxy for class #{name}"
     end
 
     def acts_as_directory

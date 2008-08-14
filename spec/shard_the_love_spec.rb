@@ -1,5 +1,10 @@
 require File.join(File.dirname(__FILE__),'spec_helper')
 
+class Shard < ActiveRecord::Base
+end 
+class Directory < ActiveRecord::Base
+end 
+
 describe ShardTheLove do
 
   it "should return a logger from ActiveRecord" do
@@ -90,17 +95,55 @@ describe ShardTheLove, "when initializing" do
 
 end
 
-describe ShardTheLove do
+describe ShardTheLove, "when loaded into classes" do
 
   before(:each) do
+    ShardTheLove.logger.stubs(:info)
     ShardTheLove.init
+  end
 
-    class Shard < ActiveRecord::Base
-      acts_as_shard
-    end
+  it "should create a new proxy for each class" do
+    Shard.acts_as_shard
+    Directory.acts_as_directory
+    ActiveRecord::Base.should have(2).active_connections
+  end
 
-    class Directory < ActiveRecord::Base
-      acts_as_directory
+  it "should raise an exception is allow_concurrency is used" do
+    ActiveRecord::Base.allow_concurrency = true
+    lambda { Shard.acts_as_shard }.should raise_error(ArgumentError)
+    ActiveRecord::Base.allow_concurrency = false
+  end
+
+  it "should log the shard creation" do
+    ShardTheLove.logger.expects(:info)
+    Shard.acts_as_shard
+  end
+
+  it "should make a directory act like a shard" do
+    Directory.expects(:acts_as_shard)
+    Directory.acts_as_directory
+  end
+
+  it "should mark a directory" do
+    Directory.expects(:mark_as_directory)
+    Directory.acts_as_directory
+  end
+
+  it "should add the class to acting_as_directories on mark_as_directory" do
+    ActiveRecord::Base::ClassMethods.send(:class_variable_set, :@@acting_as_directories, [])
+    Directory.mark_as_directory
+    ActiveRecord::Base::ClassMethods.send(:class_variable_get, :@@acting_as_directories).length.should == 1
+  end
+
+  it "should return directory as connection name for directories" do
+    Directory.acts_as_directory
+    Directory.connection_name.should == 'directory'
+  end
+
+  it "should return the current shard as the connection name for shards" do
+    Shard.acts_as_shard
+    ShardTheLove.with 'hewey' do
+      Shard.connection_name.should == 'hewey'
     end
   end
 
