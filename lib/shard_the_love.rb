@@ -4,7 +4,7 @@ require 'active_record/version'
 module ShardTheLove
   
   def self.logger
-    ActiveRecord::Base.logger
+    LOGGER
   end
 
   def self.init
