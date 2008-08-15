@@ -1,3 +1,3 @@
 # Nothing yet
-require RAILS_ROOT+'/lib/shard_the_love/lib/shard_the_love'
-require RAILS_ROOT+'/lib/shard_the_love/lib/active_record/base'
+require File.dirname(__FILE__) + '/lib/active_record/base'
+require File.dirname(__FILE__) + '/lib/shard_the_love'

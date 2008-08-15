@@ -4,7 +4,7 @@ require 'active_record/version'
 module ShardTheLove
   
   def self.logger
-    ActiveRecord::Base.logger
+    ActiveRecord::Base.logger rescue Merb.logger
   end
 
   def self.init
@@ -118,7 +118,7 @@ module ShardTheLove
     end
     
     def connection_name
-      "#{RAILS_ENV}_#{@model_class.connection_name}"
+      "#{(RAILS_ENV || MERB_ENV)}_#{@model_class.connection_name}"
     end
     
     def disconnect!
