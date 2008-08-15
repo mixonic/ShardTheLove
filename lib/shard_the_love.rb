@@ -4,11 +4,11 @@ require 'active_record/version'
 module ShardTheLove
   
   def self.logger
-    ActiveRecord::Base.logger rescue Merb.logger
+    ActiveRecord::Base.logger
   end
 
   def self.init
-    logger.info "Loading ShardTheLove with ActiveRecord #{ActiveRecord::VERSION::STRING}"
+    self.logger.info "Loading ShardTheLove with ActiveRecord #{ActiveRecord::VERSION::STRING}"
     ActiveRecord::Base.send(:include, self)
   end
   
@@ -118,7 +118,7 @@ module ShardTheLove
     end
     
     def connection_name
-      "#{(RAILS_ENV || MERB_ENV)}_#{@model_class.connection_name}"
+      "#{ENV}_#{@model_class.connection_name}"
     end
     
     def disconnect!
