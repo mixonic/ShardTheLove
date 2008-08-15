@@ -107,6 +107,41 @@ namespace :db do
       end
     end
     
+    desc "Empty the test database"
+    task :purge => ShardTheLove::RAKE_ENV_SETUP do
+      ActiveRecord::Base.configurations.each do |name,config|
+        if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
+          next if name.to_s == "#{ShardTheLove::ENV}_directory"
+          case config["adapter"]
+          when "mysql"
+            ActiveRecord::Base.establish_connection(name)
+            ActiveRecord::Base.connection.recreate_database(config["database"])
+          when "postgresql"
+            ActiveRecord::Base.clear_active_connections!
+            drop_database(config)
+            create_database(config)
+          when "sqlite","sqlite3"
+            dbfile = config["database"] || config["dbfile"]
+            File.delete(dbfile) if File.exist?(dbfile)
+          when "sqlserver"
+            dropfkscript = "#{config["host"]}.#{config["database"]}.DP1".gsub(/\\/,'-')
+            `osql -E -S #{config["host"]} -d #{config["database"]} -i #{ShardTheLove::DB_PATH}#{dropfkscript}`
+            `osql -E -S #{config["host"]} -d #{config["database"]} -i #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_shards_structure.sql`
+          when "oci", "oracle"
+            ActiveRecord::Base.establish_connection(name)
+            ActiveRecord::Base.connection.structure_drop.split(";\n\n").each do |ddl|
+              ActiveRecord::Base.connection.execute(ddl)
+            end
+          when "firebird"
+            ActiveRecord::Base.establish_connection(name)
+            ActiveRecord::Base.connection.recreate_database!
+          else
+            raise "Task not supported by '#{config["adapter"]}'"
+          end
+        end
+      end
+    end
+    
     namespace :schema do
 
       desc "Create a db/shards_schema.rb file that can be portably used against any DB supported by AR"
@@ -123,7 +158,44 @@ namespace :db do
           end
         end
       end
-
+      
+      desc "Recreate the test databases from the development structure"
+      task :clone_to_test => [ "db:shards:schema:dump", "db:shards:purge_test" ] do
+        ActiveRecord::Base.configurations.each do |name,config|
+          if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
+            next if name.to_s == "#{ShardTheLove::ENV}_directory"
+            case config["adapter"]
+            when "mysql"
+              ActiveRecord::Base.establish_connection(name)
+              ActiveRecord::Base.connection.execute('SET foreign_key_checks = 0')
+              IO.readlines("#{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql").join.split("\n\n").each do |table|
+                ActiveRecord::Base.connection.execute(table)
+              end
+            when "postgresql"
+              ENV['PGHOST']     = config["host"] if config["host"]
+              ENV['PGPORT']     = config["port"].to_s if config["port"]
+              ENV['PGPASSWORD'] = config["password"].to_s if config["password"]
+              `psql -U "#{config["username"]}" -f #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql #{config["database"]}`
+            when "sqlite", "sqlite3"
+              dbfile = config["database"] || config["dbfile"]
+              `#{config["adapter"]} #{dbfile} < #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql`
+            when "sqlserver"
+              `osql -E -S #{config["host"]} -d #{config["database"]} -i #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql`
+            when "oci", "oracle"
+              ActiveRecord::Base.establish_connection(name)
+              IO.readlines("#{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql").join.split(";\n\n").each do |ddl|
+                ActiveRecord::Base.connection.execute(ddl)
+              end
+            when "firebird"
+              set_firebird_env(config)
+              db_string = firebird_db_string(config)
+              sh "isql -i #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql #{db_string}"
+            else
+              raise "Task not supported by '#{config["adapter"]}'"
+            end
+          end
+        end
+      end
     end
 
   end
