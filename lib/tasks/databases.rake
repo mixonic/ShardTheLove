@@ -1,11 +1,9 @@
-require File.dirname(__FILE__) + '/../../shard_the_love'
-
 namespace :db do
 
   namespace :directory do
 
     desc "Migrate the directory server."
-    task :migrate => :environment do
+    task :migrate => ShardTheLove::RAKE_ENV_SETUP do
       ActiveRecord::Base.establish_connection( ShardTheLove::ENV+'_directory' )
       ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : true
       ActiveRecord::Migrator.migrate(ShardTheLove::DB_PATH+"migrate_directory/", ENV["VERSION"] ? ENV["VERSION"].to_i : nil)
@@ -15,7 +13,7 @@ namespace :db do
     namespace :schema do
 
       desc "Create a db/directory_schema.rb file that can be portably used against any DB supported by AR"
-      task :dump => :environment do
+      task :dump => ShardTheLove::RAKE_ENV_SETUP do
         require 'active_record/schema_dumper'
         ActiveRecord::Base.establish_connection( ShardTheLove::ENV+'_directory' )
         File.open(ENV['SCHEMA'] || ShardTheLove::DB_PATH+"directory_schema.rb", "w") do |file|
@@ -30,7 +28,7 @@ namespace :db do
   namespace :shards do
 
     desc "Migrate all shards."
-    task :migrate => :environment do
+    task :migrate => ShardTheLove::RAKE_ENV_SETUP do
       ActiveRecord::Base.configurations.each do |name,config|
         if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
           next if name.to_s == "#{ShardTheLove::ENV}_directory"
@@ -47,7 +45,7 @@ namespace :db do
     namespace :schema do
 
       desc "Create a db/shards_schema.rb file that can be portably used against any DB supported by AR"
-      task :dump => :environment do
+      task :dump => ShardTheLove::RAKE_ENV_SETUP do
         require 'active_record/schema_dumper'
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
