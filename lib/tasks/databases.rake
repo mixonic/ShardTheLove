@@ -32,7 +32,7 @@ namespace :db do
       ActiveRecord::Base.configurations.each do |name,config|
         if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
           next if name.to_s == "#{ShardTheLove::ENV}_directory"
-          ActiveRecord::Base.establish_connection( name )
+          ActiveRecord::Base.establish_connection( config )
           ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : true
           ActiveRecord::Migrator.migrate(ShardTheLove::DB_PATH+"migrate_shards/", ENV["VERSION"] ? ENV["VERSION"].to_i : nil)
           Rake::Task["db:shards:schema:dump"].invoke if ActiveRecord::Base.schema_format == :ruby
@@ -50,6 +50,7 @@ namespace :db do
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
             next if name.to_s == "#{ShardTheLove::ENV}_directory"
+            ActiveRecord::Base.establish_connection( config )
             File.open(ENV['SCHEMA'] || ShardTheLove::DB_PATH+"shards_schema.rb", "w") do |file|
               ActiveRecord::SchemaDumper.dump(ActiveRecord::Base.connection, file)
             end
