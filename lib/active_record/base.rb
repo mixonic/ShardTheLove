@@ -12,10 +12,13 @@ module ActiveRecord
     case spec
       when nil
         begin
-          _establish_connection( RAILS_ENV )
+          establish_connection( ShardTheLove::ENV )
         rescue AdapterNotSpecified
-          _establish_connection( RAILS_ENV+'_directory' )
+          establish_connection( ShardTheLove::ENV+'_directory' )
         end
+      when String
+        spec = spec.to_sym if Merb
+        establish_connection( spec )
       else
         _establish_connection( spec )
     end

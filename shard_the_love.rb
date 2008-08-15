@@ -14,6 +14,6 @@ elsif defined?(Merb)
   ShardTheLove::ENV = (Merb.env == 'rake' ? 'development' : Merb.env)
   ShardTheLove::LOGGER = Merb.logger
   ShardTheLove::DB_PATH = 'schema/'
-  ShardTheLove::RAKE_ENV_SETUP = :merb_env
+  ShardTheLove::RAKE_ENV_SETUP = :merb_start
 end
 
