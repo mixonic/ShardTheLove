@@ -7,9 +7,11 @@ if defined?(Rails)
   ShardTheLove::ROOT = RAILS_ROOT
   ShardTheLove::ENV = RAILS_ENV
   ShardTheLove::LOGGER = ActiveRecord::Base.logger
+  ShardTheLove::DB_PATH = 'db/'
 elsif defined?(Merb)
   ShardTheLove::ROOT = Merb.root
   ShardTheLove::ENV = (Merb.env == 'rake' ? 'development' : Merb.env)
   ShardTheLove::LOGGER = Merb.logger
+  ShardTheLove::DB_PATH = 'schema/'
 end
 
