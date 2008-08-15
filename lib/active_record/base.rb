@@ -18,7 +18,11 @@ module ActiveRecord
         end
       when String
         spec = spec.to_sym if Merb
-        establish_connection( spec )
+        if configuration = configurations[spec]
+          establish_connection(configuration)
+        else
+          raise AdapterNotSpecified, "#{spec} database is not configured"
+        end
       else
         _establish_connection( spec )
     end
