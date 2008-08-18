@@ -59,28 +59,28 @@ namespace :db do
         when "mysql"
           ActiveRecord::Base.establish_connection(:test_directory)
           ActiveRecord::Base.connection.execute('SET foreign_key_checks = 0')
-          IO.readlines("#{ShardTheLove::DB_PATH}#{RAILS_ENV}_directory_structure.sql").join.split("\n\n").each do |table|
+          IO.readlines("#{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_directory_structure.sql").join.split("\n\n").each do |table|
             ActiveRecord::Base.connection.execute(table)
           end
         when "postgresql"
           ENV['PGHOST']     = abcs["test_directory"]["host"] if abcs["test_directory"]["host"]
           ENV['PGPORT']     = abcs["test_directory"]["port"].to_s if abcs["test_directory"]["port"]
           ENV['PGPASSWORD'] = abcs["test_directory"]["password"].to_s if abcs["test_directory"]["password"]
-          `psql -U "#{abcs["test_directory"]["username"]}" -f #{ShardTheLove::DB_PATH}#{RAILS_ENV}_directory_structure.sql #{abcs["test_directory"]["database"]}`
+          `psql -U "#{abcs["test_directory"]["username"]}" -f #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_directory_structure.sql #{abcs["test_directory"]["database"]}`
         when "sqlite", "sqlite3"
           dbfile = abcs["test_directory"]["database"] || abcs["test_directory"]["dbfile"]
-          `#{abcs["test_directory"]["adapter"]} #{dbfile} < #{ShardTheLove::DB_PATH}#{RAILS_ENV}_directory_structure.sql`
+          `#{abcs["test_directory"]["adapter"]} #{dbfile} < #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_directory_structure.sql`
         when "sqlserver"
-          `osql -E -S #{abcs["test_directory"]["host"]} -d #{abcs["test_directory"]["database"]} -i #{ShardTheLove::DB_PATH}#{RAILS_ENV}_directory_structure.sql`
+          `osql -E -S #{abcs["test_directory"]["host"]} -d #{abcs["test_directory"]["database"]} -i #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_directory_structure.sql`
         when "oci", "oracle"
           ActiveRecord::Base.establish_connection(:test_directory)
-          IO.readlines("#{ShardTheLove::DB_PATH}#{RAILS_ENV}_directory_structure.sql").join.split(";\n\n").each do |ddl|
+          IO.readlines("#{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_directory_structure.sql").join.split(";\n\n").each do |ddl|
             ActiveRecord::Base.connection.execute(ddl)
           end
         when "firebird"
           set_firebird_env(abcs["test_directory"])
           db_string = firebird_db_string(abcs["test_directory"])
-          sh "isql -i #{ShardTheLove::DB_PATH}#{RAILS_ENV}_directory_structure.sql #{db_string}"
+          sh "isql -i #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_directory_structure.sql #{db_string}"
         else
           raise "Task not supported by '#{abcs["test_directory"]["adapter"]}'"
         end
@@ -168,28 +168,28 @@ namespace :db do
             when "mysql"
               ActiveRecord::Base.establish_connection(name)
               ActiveRecord::Base.connection.execute('SET foreign_key_checks = 0')
-              IO.readlines("#{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql").join.split("\n\n").each do |table|
+              IO.readlines("#{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_shards_structure.sql").join.split("\n\n").each do |table|
                 ActiveRecord::Base.connection.execute(table)
               end
             when "postgresql"
               ENV['PGHOST']     = config["host"] if config["host"]
               ENV['PGPORT']     = config["port"].to_s if config["port"]
               ENV['PGPASSWORD'] = config["password"].to_s if config["password"]
-              `psql -U "#{config["username"]}" -f #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql #{config["database"]}`
+              `psql -U "#{config["username"]}" -f #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_shards_structure.sql #{config["database"]}`
             when "sqlite", "sqlite3"
               dbfile = config["database"] || config["dbfile"]
-              `#{config["adapter"]} #{dbfile} < #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql`
+              `#{config["adapter"]} #{dbfile} < #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_shards_structure.sql`
             when "sqlserver"
-              `osql -E -S #{config["host"]} -d #{config["database"]} -i #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql`
+              `osql -E -S #{config["host"]} -d #{config["database"]} -i #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_shards_structure.sql`
             when "oci", "oracle"
               ActiveRecord::Base.establish_connection(name)
-              IO.readlines("#{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql").join.split(";\n\n").each do |ddl|
+              IO.readlines("#{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_shards_structure.sql").join.split(";\n\n").each do |ddl|
                 ActiveRecord::Base.connection.execute(ddl)
               end
             when "firebird"
               set_firebird_env(config)
               db_string = firebird_db_string(config)
-              sh "isql -i #{ShardTheLove::DB_PATH}#{RAILS_ENV}_shards_structure.sql #{db_string}"
+              sh "isql -i #{ShardTheLove::DB_PATH}#{ShardTheLove::ENV}_shards_structure.sql #{db_string}"
             else
               raise "Task not supported by '#{config["adapter"]}'"
             end
