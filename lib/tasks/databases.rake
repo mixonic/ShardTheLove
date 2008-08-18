@@ -62,7 +62,7 @@ namespace :db do
 
       desc "Recreate the test database from the current environment's database schema"
       task :clone => %w(db:directory:schema:dump db:directory:purge_test) do
-        ActiveRecord::Base.establish_connection(:test_directory)
+        ActiveRecord::Base.establish_connection('test_directory')
         ActiveRecord::Schema.verbose = false
         load(ShardTheLove::DB_PATH+"directory_schema.rb")
       end
