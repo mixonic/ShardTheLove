@@ -17,8 +17,7 @@ module ActiveRecord
           establish_connection( ShardTheLove::ENV+'_directory' )
         end
       when String
-        spec = spec.to_sym if Merb
-        if configuration = configurations[spec]
+        if configuration = HashWithIndifferentAccess.new(configurations)[spec]
           establish_connection(configuration)
         else
           raise AdapterNotSpecified, "#{spec} database is not configured"
