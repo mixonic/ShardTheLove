@@ -96,7 +96,7 @@ namespace :db do
           next if name.to_s == "#{ShardTheLove::ENV}_directory"
           case config["adapter"]
           when "mysql"
-            ActiveRecord::Base.establish_connection(name)
+            ActiveRecord::Base.establish_connection(name.to_s)
             ActiveRecord::Base.connection.recreate_database(config["database"])
           when "postgresql"
             ActiveRecord::Base.clear_active_connections!
@@ -158,7 +158,7 @@ namespace :db do
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^test_.*/
             next if name.to_s == "test_directory"
-            ActiveRecord::Base.establish_connection(name)
+            ActiveRecord::Base.establish_connection(name.to_s)
             ActiveRecord::Schema.verbose = false
             load(ShardTheLove::DB_PATH+"shards_schema.rb")
           end
