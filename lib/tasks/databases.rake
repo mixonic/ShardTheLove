@@ -89,7 +89,7 @@ namespace :db do
     end
     
     desc "Empty the test database"
-    task :purge_tests => ShardTheLove::RAKE_ENV_SETUP do
+    task :purge_test => ShardTheLove::RAKE_ENV_SETUP do
       ActiveRecord::Base.configurations.each do |name,config|
         config = HashWithIndifferentAccess.new(config)
         if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
