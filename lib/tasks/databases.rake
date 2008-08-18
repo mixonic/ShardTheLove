@@ -53,7 +53,7 @@ namespace :db do
       end
 
       desc "Recreate the test databases from the development structure"
-      task :clone_to_test => [ "db:directory:schema:dump", "db:directory:purge_test" ] do
+      task :clone_to_test => [ "db:directory:schema:dump", "db:directory:purge" ] do
         abcs = ActiveRecord::Base.configurations
         case abcs["test_directory"]["adapter"]
         when "mysql"
@@ -160,7 +160,7 @@ namespace :db do
       end
       
       desc "Recreate the test databases from the development structure"
-      task :clone_to_test => [ "db:shards:schema:dump", "db:shards:purge_test" ] do
+      task :clone_to_test => [ "db:shards:schema:dump", "db:shards:purge" ] do
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
             next if name.to_s == "#{ShardTheLove::ENV}_directory"
