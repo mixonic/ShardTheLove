@@ -92,8 +92,8 @@ namespace :db do
     task :purge_test => ShardTheLove::RAKE_ENV_SETUP do
       ActiveRecord::Base.configurations.each do |name,config|
         config = HashWithIndifferentAccess.new(config)
-        if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
-          next if name.to_s == "#{ShardTheLove::ENV}_directory"
+        if name.to_s =~ /^test_.*/
+          next if name.to_s == "test_directory"
           case config["adapter"]
           when "mysql"
             ActiveRecord::Base.establish_connection(name.to_s)
