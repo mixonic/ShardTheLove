@@ -8,7 +8,7 @@ module ShardTheLove
   end
 
   def self.init
-    self.logger.info "Loading ShardTheLove with ActiveRecord #{ActiveRecord::VERSION::STRING}"
+    self.logger.info "Loading ShardTheLove with ActiveRecord #{ActiveRecord::VERSION::STRING}" if self.logger
     ActiveRecord::Base.send(:include, self)
   end
   
@@ -59,14 +59,14 @@ module ShardTheLove
       ActiveRecord::Base.active_connections[name] = proxy
       
       raise ArgumentError, "ShardTheLove does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
-      ShardTheLove.logger.info "Creating ShardTheLove proxy for class #{name}"
+      ShardTheLove.logger.info "Creating ShardTheLove proxy for class #{name}" if self.logger
     end
 
     def acts_as_directory
       self.acts_as_shard
       self.mark_as_directory
     end
-     
+
     def connection_name
       return 'directory' if @@acting_as_directories && @@acting_as_directories.include?( self.to_s )
       raise( 'A shard must be selected' ) unless Thread.current[:shard]
@@ -103,7 +103,7 @@ module ShardTheLove
       unless @cached_connection
         raw_connection
       end
-      if logger.debug?
+      if logger && logger.debug?
         logger.debug("Calling #{method} on #{@cached_connection}")
       end
       begin
@@ -137,7 +137,7 @@ module ShardTheLove
           connection_pool = (Thread.current[:shard_the_love_connections] ||= {})
           conn = connection_pool[conn_name]
           if !conn
-            if logger.debug?
+            if logger && logger.debug?
               logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (new connection)"
             end
             config = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)[conn_name]
@@ -145,7 +145,7 @@ module ShardTheLove
             @model_class.establish_connection config
             conn = @model_class.connection
             connection_pool[conn_name] = conn
-          elsif logger.debug?
+          elsif logger && logger.debug?
             logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (existing connection)"
           end
           @current_connection_name = conn_name
