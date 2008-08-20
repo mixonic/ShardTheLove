@@ -59,7 +59,7 @@ module ShardTheLove
       ActiveRecord::Base.active_connections[name] = proxy
       
       raise ArgumentError, "ShardTheLove does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
-      ShardTheLove.logger.info "Creating ShardTheLove proxy for class #{name}" if self.logger
+      ShardTheLove.logger.info "Creating ShardTheLove proxy for class #{name}" if ShardTheLove.logger
     end
 
     def acts_as_directory
