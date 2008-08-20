@@ -70,7 +70,7 @@ module ShardTheLove
     def connection_name
       return 'directory' if (
         ( @@acting_as_directories &&
-          @@acting_as_directories.include?( self.to_s ) ) rescue false )
+          @@acting_as_directories.include?( self.to_s ) ) rescue false
       )
       raise( 'A shard must be selected' ) unless Thread.current[:shard]
       return Thread.current[:shard]
