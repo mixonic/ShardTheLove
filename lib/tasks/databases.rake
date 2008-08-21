@@ -1,4 +1,4 @@
-if Rails
+if (Rails rescue false)
   require RAILS_ROOT+'/vendor/plugins/shard_the_love/shard_the_love'
 end
 
