@@ -107,7 +107,7 @@ module ShardTheLove
         raw_connection
       end
       if logger && logger.debug?
-        logger.debug("Calling #{method} on #{@cached_connection}")
+        logger.debug("Calling #{method} on #{@current_connection_name}")
       end
       begin
         raw_connection.send(method, *args, &block)
