@@ -16,10 +16,13 @@ Add the following to your spec/spec_helper.rb in Merb or Rails:
   config.use_transactional_fixtures = false
 
   config.before(:all) do
-    root = RAILS_ROOT || Merb.root
-    Dir.foreach("#{root}/app/models/") do |file|
-      next if file =~ /^\./ || !(file =~ /\.rb$/)
-      require "#{root}/app/models/#{file}"
+    if (Rails rescue false)
+      root = RAILS_ROOT 
+      Dir.foreach("#{root}/app/models/") do |file|
+        next if file =~ /^\./ || !(file =~ /\.rb$/)
+        require "#{root}/app/models/#{file}"
+      end
+    elsif(Merb rescue false)
     end
     ShardTheLove.with('shard')
   end
