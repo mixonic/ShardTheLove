@@ -79,11 +79,14 @@ namespace :db do
     desc "Migrate all shards."
     task :migrate => ShardTheLove::RAKE_ENV_SETUP do
       ActiveRecord::Base.configurations.each do |name,config|
-        if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
+        shard_match = name.to_s.match(/^#{ShardTheLove::ENV}_(.*)/)
+        if shard_match
           next if name.to_s == "#{ShardTheLove::ENV}_directory"
           ActiveRecord::Base.establish_connection( config )
           ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : true
-          ActiveRecord::Migrator.migrate(ShardTheLove::DB_PATH+"migrate_shards/", ENV["VERSION"] ? ENV["VERSION"].to_i : nil)
+          ShardTheLove.with( shard_match[1] ) do
+            ActiveRecord::Migrator.migrate(ShardTheLove::DB_PATH+"migrate_shards/", ENV["VERSION"] ? ENV["VERSION"].to_i : nil)
+          end
           Rake::Task["db:shards:schema:dump"].invoke if ActiveRecord::Base.schema_format == :ruby
         else
           next
