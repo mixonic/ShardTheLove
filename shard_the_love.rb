@@ -1,6 +1,7 @@
 # Set up some ENV for merb/rails compatibility, load the library
 
 require File.dirname(__FILE__) + '/lib/active_record/base'
+require File.dirname(__FILE__) + '/lib/active_record/connection_adapters/schema_statements'
 require File.dirname(__FILE__) + '/lib/shard_the_love'
 
 if defined?(Rails)
