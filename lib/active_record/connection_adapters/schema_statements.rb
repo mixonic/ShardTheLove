@@ -11,7 +11,7 @@ module ActiveRecord
         ActiveRecord::Base.active_connections.each do |conn|
           begin
             current_conn = conn[1].
-              instance_variable_get(:@current_connection_name)
+              instance_variable_get(:@current_connection_name).to_s
           rescue
           end
           break if current_conn
