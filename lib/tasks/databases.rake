@@ -175,4 +175,27 @@ namespace :db do
 
   end
 
+
+  namespace :all do
+
+    desc 'Updates all databases with latest scripts'
+    task :migrate do
+
+      Rake::Task["db:migrate"].invoke
+      Rake::Task["db:directory:migrate"].invoke
+      Rake::Task["db:shards:migrate"].invoke
+
+    end
+
+    desc 'Clones all test databases'
+    task :clone do
+
+      Rake::Task["db:test:clone"].invoke
+      Rake::Task["db:directory:schema:clone"].invoke
+      Rake::Task["db:shards:schema:clone"].invoke
+
+    end
+
+  end
+
 end
