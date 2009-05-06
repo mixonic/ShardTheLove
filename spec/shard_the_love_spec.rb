@@ -7,9 +7,9 @@ end
 
 describe ShardTheLove do
 
-  it "should return a logger from ActiveRecord" do
-    ActiveRecord::Base.expects(:logger)
-    ShardTheLove.logger
+  it "should return LOGGER at .logger" do
+    ShardTheLove::LOGGER = 'this is it!'
+    ShardTheLove.logger.should == 'this is it!'
   end
 
   it "should clear the connection pool" do
