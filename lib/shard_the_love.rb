@@ -100,13 +100,13 @@ module ShardTheLove
     def acts_as_shard
       class_eval 'def self.config_key(env); "#{env}_#{ShardTheLove.current_shard}"; end'
       class_eval 'def self.connection_handler; ShardTheLove.current_shard_connection(self); end'
-      class_eval 'def connection_handler; raise "Fookah!"; self.class.connection_handler; end'
+      class_eval 'def connection_handler; self.class.connection_handler; end'
     end
 
     def acts_as_directory
       class_eval 'def self.config_key(env); "#{env}_directory"; end'
       class_eval 'def self.connection_handler; ShardTheLove.current_directory_connection(self); end'
-      class_eval 'def connection_handler; raise "Fookah!"; self.class.connection_handler; end'
+      class_eval 'def connection_handler; self.class.connection_handler; end'
     end
 
   end
