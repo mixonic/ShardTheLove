@@ -1,7 +1,11 @@
 require 'active_record'
 require 'active_record/version'
+require 'active_record/connection_adapters/abstract/connection_specification'
+require 'active_record/connection_adapters/abstract/connection_pool'
 
 module ShardTheLove
+
+  @@current_shard_connections, @@current_directory_connection = {}, nil
   
   def self.logger
     LOGGER
@@ -10,10 +14,6 @@ module ShardTheLove
   def self.init
     self.logger.info "Loading ShardTheLove with ActiveRecord #{ActiveRecord::VERSION::STRING}" if self.logger
     ActiveRecord::Base.send(:include, self)
-  end
-  
-  def self.clear_connection_pool!
-    (Thread.current[:shard_the_love_connections] ||= {}).clear
   end
   
   def self.with_shard(shard, &block)
@@ -29,7 +29,7 @@ module ShardTheLove
       end
     end
   end
-  
+ 
   class << self
     alias :with :with_shard
   end
@@ -46,6 +46,48 @@ module ShardTheLove
       raise ArgumentError, "No active shard" unless shard
     end
   end
+
+  def self.current_shard_connection( ar_class )
+    return @@current_shard_connections[current_shard] if @@current_shard_connections[current_shard]
+
+    spec = ActiveRecord::Base.configurations[ar_class.config_key(RAILS_ENV)]
+    
+    raise 'Shard not configured' unless spec
+
+    adapter_method = "#{spec['adapter']}_connection"
+
+    @@current_shard_connections[current_shard] = ActiveRecord::ConnectionAdapters::ConnectionHandler.new
+    @@current_shard_connections[current_shard].establish_connection(
+      ar_class.name,
+      ActiveRecord::Base::ConnectionSpecification.new(
+        spec,
+        adapter_method
+      )
+    )
+
+    return @@current_shard_connections[current_shard]
+  end
+
+  def self.current_directory_connection( ar_class )
+    return @@current_directory_connection if @@current_directory_connection
+    
+    spec = ActiveRecord::Base.configurations[ar_class.config_key(RAILS_ENV)]
+
+    raise 'Directory not configured' unless spec
+
+    adapter_method = "#{spec['adapter']}_connection"
+
+    @@current_directory_connection = ActiveRecord::ConnectionAdapters::ConnectionHandler.new
+    @@current_directory_connection.establish_connection(
+      ar_class.name,
+      ActiveRecord::Base::ConnectionSpecification.new(
+        spec,
+        adapter_method
+      )
+    )
+
+    return @@current_directory_connection
+  end
   
   def self.included(model)
     # Wire up ActiveRecord::Base
@@ -54,122 +96,19 @@ module ShardTheLove
 
   # Class methods injected into ActiveRecord::Base
   module ClassMethods
+    
     def acts_as_shard
-      proxy = ShardTheLove::ConnectionProxy.new(self)
-      ActiveRecord::Base.active_connections[name] = proxy
-      
-      raise ArgumentError, "ShardTheLove does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
-      ShardTheLove.logger.info "Creating ShardTheLove proxy for class #{name}" if ShardTheLove.logger
+      class_eval 'def self.config_key(env); "#{env}_#{ShardTheLove.current_shard}"; end'
+      class_eval 'def self.connection_handler; ShardTheLove.current_shard_connection(self); end'
+      class_eval 'def connection_handler; raise "Fookah!"; self.class.connection_handler; end'
     end
 
     def acts_as_directory
-      self.acts_as_shard
-      self.mark_as_directory
+      class_eval 'def self.config_key(env); "#{env}_directory"; end'
+      class_eval 'def self.connection_handler; ShardTheLove.current_directory_connection(self); end'
+      class_eval 'def connection_handler; raise "Fookah!"; self.class.connection_handler; end'
     end
 
-    def connection_name
-      return 'directory' if (
-        ( @@acting_as_directories &&
-          @@acting_as_directories.include?( self.to_s ) ) rescue false
-      )
-      raise( 'A shard must be selected' ) unless Thread.current[:shard]
-      return Thread.current[:shard]
-    end
-
-    def mark_as_directory
-      @@acting_as_directories ||= []
-      @@acting_as_directories << self.to_s
-    end
-  end
-   
-  class StringProxy
-    def initialize(&block)
-      @proc = block
-    end
-    def to_s
-      @proc.call
-    end
-  end
-
-  class ConnectionProxy
-    def initialize(model_class)
-      @model_class = model_class      
-      @cached_connection = nil
-      @current_connection_name = nil
-    end
-    
-    def transaction(start_db_transaction = true, &block)
-      raw_connection.transaction(start_db_transaction, &block)
-    end
-
-    def method_missing(method, *args, &block)
-      unless @cached_connection
-        raw_connection
-      end
-      if logger && logger.debug?
-        logger.debug("Calling #{method} on #{@current_connection_name}")
-      end
-      begin
-        raw_connection.send(method, *args, &block)
-      rescue ActiveRecord::StatementInvalid => e
-        if e =~ /^Mysql::Error: MySQL server has gone away:/
-          @cached_connection = nil
-          raw_connection
-          raw_connection.send(method, *args, &block)
-        end
-      end
-    end
-    
-    def connection_name
-      "#{ENV}_#{@model_class.connection_name}"
-    end
-    
-    def disconnect!
-      @cached_connection.disconnect! if @cached_connection
-      @cached_connection = nil
-    end
-    
-    def verify!(arg)
-      @cached_connection.verify!(0) if @cached_connection
-    end
-    
-    def raw_connection
-      conn_name = connection_name
-      unless already_connected_to? conn_name 
-        @cached_connection = begin 
-          connection_pool = (Thread.current[:shard_the_love_connections] ||= {})
-          conn = connection_pool[conn_name]
-          if !conn
-            if logger && logger.debug?
-              logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (new connection)"
-            end
-            config = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)[conn_name]
-            raise ArgumentError, "Unknown database config: #{conn_name}, have #{ActiveRecord::Base.configurations.inspect}" unless config
-            @model_class.establish_connection config
-            conn = @model_class.connection
-            connection_pool[conn_name] = conn
-          elsif logger && logger.debug?
-            logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (existing connection)"
-          end
-          @current_connection_name = conn_name
-          conn.verify!(-1)
-          conn
-        end
-        @model_class.active_connections[@model_class.name] = self
-      end
-      @cached_connection
-    end
-
-    private
-    
-    def already_connected_to?(conn_name)
-      conn_name == @current_connection_name and @cached_connection
-    end
-    
-    def logger
-      ShardTheLove.logger
-    end
   end
 
 end
-

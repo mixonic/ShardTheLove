@@ -1,13 +1,12 @@
 # Set up some ENV for merb/rails compatibility, load the library
 
-require File.dirname(__FILE__) + '/lib/active_record/base'
 require File.dirname(__FILE__) + '/lib/active_record/connection_adapters/schema_statements'
 require File.dirname(__FILE__) + '/lib/shard_the_love'
 
 if defined?(Rails)
   ShardTheLove::ROOT = RAILS_ROOT
   ShardTheLove::ENV = RAILS_ENV
-  ShardTheLove::LOGGER = ActiveRecord::Base.logger
+  ShardTheLove::LOGGER = Rails.logger
   ShardTheLove::DB_PATH = 'db/'
   ShardTheLove::RAKE_ENV_SETUP = :environment
 elsif defined?(Merb)
