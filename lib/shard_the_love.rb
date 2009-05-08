@@ -5,6 +5,14 @@ require 'active_record/connection_adapters/abstract/connection_pool'
 
 module ShardTheLove
 
+  def self.directory_handler
+    @@current_directory_connection || nil
+  end
+
+  def self.shard_handlers
+    @@current_shard_connections || {}
+  end
+
   @@current_shard_connections, @@current_directory_connection = {}, nil
   
   def self.logger
@@ -23,6 +31,7 @@ module ShardTheLove
     Thread.current[:shard] = shard
     if block_given?
       begin
+        logger.info "STL: Switching scope to shard '#{shard}'"
         yield
       ensure
         Thread.current[:shard] = old if old
@@ -48,7 +57,13 @@ module ShardTheLove
   end
 
   def self.current_shard_connection( ar_class )
-    return @@current_shard_connections[current_shard] if @@current_shard_connections[current_shard]
+    if @@current_shard_connections[current_shard] &&
+       @@current_shard_connections[current_shard].connected?(ar_class)
+      # logger.info "STL: Existing connection for '#{ar_class}' to '#{current_shard}' - "+@@current_shard_connections[current_shard].connection_pools.keys.join(", ")
+      return @@current_shard_connections[current_shard]
+    end
+
+    logger.info "STL: New connection for '#{ar_class}' to '#{current_shard}'"
 
     spec = ActiveRecord::Base.configurations[ar_class.config_key(RAILS_ENV)]
     
@@ -56,7 +71,7 @@ module ShardTheLove
 
     adapter_method = "#{spec['adapter']}_connection"
 
-    @@current_shard_connections[current_shard] = ActiveRecord::ConnectionAdapters::ConnectionHandler.new
+    @@current_shard_connections[current_shard] ||= ActiveRecord::ConnectionAdapters::ConnectionHandler.new
     @@current_shard_connections[current_shard].establish_connection(
       ar_class.name,
       ActiveRecord::Base::ConnectionSpecification.new(
@@ -77,7 +92,7 @@ module ShardTheLove
 
     adapter_method = "#{spec['adapter']}_connection"
 
-    @@current_directory_connection = ActiveRecord::ConnectionAdapters::ConnectionHandler.new
+    @@current_directory_connection ||= ActiveRecord::ConnectionAdapters::ConnectionHandler.new
     @@current_directory_connection.establish_connection(
       ar_class.name,
       ActiveRecord::Base::ConnectionSpecification.new(
