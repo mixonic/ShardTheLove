@@ -73,7 +73,7 @@ module ShardTheLove
 
     @@current_shard_connections[current_shard] ||= ActiveRecord::ConnectionAdapters::ConnectionHandler.new
     @@current_shard_connections[current_shard].establish_connection(
-      ar_class.name,
+      'ActiveRecord::Base',
       ActiveRecord::Base::ConnectionSpecification.new(
         spec,
         adapter_method
@@ -94,7 +94,7 @@ module ShardTheLove
 
     @@current_directory_connection ||= ActiveRecord::ConnectionAdapters::ConnectionHandler.new
     @@current_directory_connection.establish_connection(
-      ar_class.name,
+      'ActiveRecord::Base',
       ActiveRecord::Base::ConnectionSpecification.new(
         spec,
         adapter_method
