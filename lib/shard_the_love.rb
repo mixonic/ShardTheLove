@@ -31,7 +31,7 @@ module ShardTheLove
     Thread.current[:shard] = shard
     if block_given?
       begin
-        logger.info "STL: Switching scope to shard '#{shard}'"
+        self.logger.info "STL: Switching scope to shard '#{shard}'" if self.logger
         yield
       ensure
         Thread.current[:shard] = old if old
@@ -63,7 +63,7 @@ module ShardTheLove
       return @@current_shard_connections[current_shard]
     end
 
-    logger.info "STL: New connection for '#{ar_class}' to '#{current_shard}'"
+    self.logger.info "STL: New connection for '#{ar_class}' to '#{current_shard}'" if self.logger
 
     spec = ActiveRecord::Base.configurations[ar_class.config_key(RAILS_ENV)]
     
