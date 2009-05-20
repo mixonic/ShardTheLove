@@ -72,6 +72,20 @@ namespace :db do
 
     end
 
+    desc "Raises an error if there are pending migrations on the directory database"
+    task :abort_if_pending_migrations => ShardTheLove::RAKE_ENV_SETUP do
+      ActiveRecord::Base.establish_connection( ShardTheLove::ENV+'_directory' )
+      pending_migrations = ActiveRecord::Migrator.new(:up, ShardTheLove::DB_PATH+"migrate_directory").pending_migrations
+
+      if pending_migrations.any?
+        puts "You have #{pending_migrations.size} pending migrations on the directory:"
+        pending_migrations.each do |pending_migration|
+          puts '  %4d %s' % [pending_migration.version, pending_migration.name]
+        end
+        abort %{Run "rake db:directory:migrate" to update your database then try again.}
+      end
+    end
+
   end
 
   namespace :shards do
@@ -93,7 +107,7 @@ namespace :db do
         end
       end
     end
-    
+
     desc "Empty the test database"
     task :purge_test => ShardTheLove::RAKE_ENV_SETUP do
       ActiveRecord::Base.configurations.each do |name,config|
@@ -129,7 +143,7 @@ namespace :db do
         end
       end
     end
-    
+
     namespace :schema do
 
       desc "Create a db/shards_schema.rb file that can be portably used against any DB supported by AR"
@@ -170,7 +184,30 @@ namespace :db do
           end
         end
       end
-      
+
+    end
+
+    desc "Raises an error if there are pending migrations on the shards"
+    task :abort_if_pending_migrations => ShardTheLove::RAKE_ENV_SETUP do
+
+      ActiveRecord::Base.configurations.each do |name,config|
+        if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
+          next if name.to_s == "#{ShardTheLove::ENV}_directory"
+          ActiveRecord::Base.establish_connection( config )
+
+          pending_migrations = ActiveRecord::Migrator.new(:up, ShardTheLove::DB_PATH+"migrate_shards").pending_migrations
+
+          if pending_migrations.any?
+            puts "You have #{pending_migrations.size} pending migrations on the shards:"
+            pending_migrations.each do |pending_migration|
+              puts '  %4d %s' % [pending_migration.version, pending_migration.name]
+            end
+            abort %{Run "rake db:shards:migrate" to update your database then try again.}
+          end
+
+        end
+      end
+
     end
 
   end
@@ -190,12 +227,30 @@ namespace :db do
     desc 'Clones all test databases'
     task :clone do
 
+      # Otherwise, might be connected to wrong database
+      ActiveRecord::Base.establish_connection(:test) if ActiveRecord::Base.connected?
+
       Rake::Task["db:test:clone"].invoke
       Rake::Task["db:directory:schema:clone"].invoke
       Rake::Task["db:shards:schema:clone"].invoke
 
     end
 
+    desc "Raises an error if there are pending migrations on any databases"
+    task :abort_if_pending_migrations do
+      Rake::Task["db:abort_if_pending_migrations"].invoke
+      Rake::Task["db:directory:abort_if_pending_migrations"].invoke
+      Rake::Task["db:shards:abort_if_pending_migrations"].invoke
+    end
+
+  end
+
+  # Without this prerequisite, the pending migrations might be compared to the wrong database
+  Rake::Task["db:abort_if_pending_migrations"].enhance ["db:reset_sharded_connection"]
+
+  desc "Reset database connection to default (system) between tasks"
+  task :reset_sharded_connection do
+    ActiveRecord::Base.establish_connection :test
   end
 
 end
