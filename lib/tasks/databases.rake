@@ -8,6 +8,7 @@ namespace :db do
 
     desc "Migrate the directory server."
     task :migrate => ShardTheLove::RAKE_ENV_SETUP do
+      ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       ActiveRecord::Base.establish_connection( ShardTheLove::ENV+'_directory' )
       ActiveRecord::Migration.verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] == "true" : true
       ActiveRecord::Migrator.migrate(ShardTheLove::DB_PATH+"migrate_directory/", ENV["VERSION"] ? ENV["VERSION"].to_i : nil)
@@ -16,6 +17,7 @@ namespace :db do
 
     desc "Empty the test database"
     task :purge_test => ShardTheLove::RAKE_ENV_SETUP do
+      ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       abcs = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       case abcs["test_directory"]["adapter"]
       when "mysql"
@@ -49,6 +51,7 @@ namespace :db do
 
       desc "Create a db/directory_schema.rb file that can be portably used against any DB supported by AR"
       task :dump => ShardTheLove::RAKE_ENV_SETUP do
+        ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
         require 'active_record/schema_dumper'
         ActiveRecord::Base.establish_connection( ShardTheLove::ENV+'_directory' )
         File.open(ENV['SCHEMA'] || ShardTheLove::DB_PATH+"directory_schema.rb", "w") do |file|
@@ -58,6 +61,7 @@ namespace :db do
 
       desc "Load a schema.rb file into the database"
       task :load => ShardTheLove::RAKE_ENV_SETUP do
+        ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
         ActiveRecord::Base.establish_connection(ShardTheLove::ENV+'_directory')
         file = ENV['SCHEMA'] || ShardTheLove::DB_PATH+"directory_schema.rb"
         load(file)
@@ -65,6 +69,7 @@ namespace :db do
 
       desc "Recreate the test database from the current environment's database schema"
       task :clone => %w(db:directory:schema:dump db:directory:purge_test) do
+        ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
         ActiveRecord::Base.establish_connection('test_directory')
         ActiveRecord::Schema.verbose = false
         load(ShardTheLove::DB_PATH+"directory_schema.rb")
@@ -74,6 +79,7 @@ namespace :db do
 
     desc "Raises an error if there are pending migrations on the directory database"
     task :abort_if_pending_migrations => ShardTheLove::RAKE_ENV_SETUP do
+      ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       ActiveRecord::Base.establish_connection( ShardTheLove::ENV+'_directory' )
       pending_migrations = ActiveRecord::Migrator.new(:up, ShardTheLove::DB_PATH+"migrate_directory").pending_migrations
 
@@ -92,6 +98,7 @@ namespace :db do
 
     desc "Migrate all shards."
     task :migrate => ShardTheLove::RAKE_ENV_SETUP do
+      ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       ActiveRecord::Base.configurations.each do |name,config|
         shard_match = name.to_s.match(/^#{ShardTheLove::ENV}_(.*)/)
         if shard_match
@@ -110,6 +117,7 @@ namespace :db do
 
     desc "Empty the test database"
     task :purge_test => ShardTheLove::RAKE_ENV_SETUP do
+      ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       ActiveRecord::Base.configurations.each do |name,config|
         config = HashWithIndifferentAccess.new(config)
         if name.to_s =~ /^test_.*/
@@ -148,6 +156,7 @@ namespace :db do
 
       desc "Create a db/shards_schema.rb file that can be portably used against any DB supported by AR"
       task :dump => ShardTheLove::RAKE_ENV_SETUP do
+        ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
         require 'active_record/schema_dumper'
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
@@ -163,6 +172,7 @@ namespace :db do
 
       desc "Load a schema.rb file into the database"
       task :load => ShardTheLove::RAKE_ENV_SETUP do
+        ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
             next if name.to_s == "#{ShardTheLove::ENV}_directory"
@@ -175,6 +185,7 @@ namespace :db do
 
       desc "Recreate the test database from the current environment's database schema"
       task :clone => %w(db:shards:schema:dump db:shards:purge_test) do
+        ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
         ActiveRecord::Base.configurations.each do |name,config|
           if name.to_s =~ /^test_.*/
             next if name.to_s == "test_directory"
@@ -189,7 +200,7 @@ namespace :db do
 
     desc "Raises an error if there are pending migrations on the shards"
     task :abort_if_pending_migrations => ShardTheLove::RAKE_ENV_SETUP do
-
+      ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       ActiveRecord::Base.configurations.each do |name,config|
         if name.to_s =~ /^#{ShardTheLove::ENV}_.*/
           next if name.to_s == "#{ShardTheLove::ENV}_directory"
@@ -228,6 +239,7 @@ namespace :db do
     task :clone do
 
       # Otherwise, might be connected to wrong database
+      ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
       ActiveRecord::Base.establish_connection(:test) if ActiveRecord::Base.connected?
 
       Rake::Task["db:test:clone"].invoke
@@ -250,6 +262,7 @@ namespace :db do
 
   desc "Reset database connection to default (system) between tasks"
   task :reset_sharded_connection do
+    ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
     ActiveRecord::Base.establish_connection :test
   end
 
