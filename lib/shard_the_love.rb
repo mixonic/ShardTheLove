@@ -5,16 +5,20 @@ require 'active_record/connection_adapters/abstract/connection_pool'
 
 module ShardTheLove
 
+  @@current_shard_connections, @@current_directory_connection = {}, nil
+
   def self.directory_handler
-    @@current_directory_connection || nil
+    @@current_directory_connection
   end
 
   def self.shard_handlers
-    @@current_shard_connections || {}
+    @@current_shard_connections
   end
 
-  @@current_shard_connections, @@current_directory_connection = {}, nil
-  
+  def self.ar_config
+    @@ar_config ||= HashWithIndifferentAccess.new( ActiveRecord::Base.configurations )
+  end
+ 
   def self.logger
     LOGGER
   end
@@ -65,7 +69,7 @@ module ShardTheLove
 
     self.logger.info "STL: New connection for '#{ar_class}' to '#{current_shard}'" if self.logger
 
-    spec = ActiveRecord::Base.configurations[ar_class.config_key(RAILS_ENV)]
+    spec = ShardTheLove.ar_config[ar_class.config_key(ShardTheLove::ENV)]
     
     raise 'Shard not configured' unless spec
 
@@ -86,7 +90,7 @@ module ShardTheLove
   def self.current_directory_connection( ar_class )
     return @@current_directory_connection if @@current_directory_connection
     
-    spec = ActiveRecord::Base.configurations[ar_class.config_key(RAILS_ENV)]
+    spec = ShardTheLove.ar_config[ar_class.config_key(ShardTheLove::ENV)]
 
     raise 'Directory not configured' unless spec
 
