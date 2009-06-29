@@ -8,7 +8,7 @@ module ActiveRecord
 
         migrated = select_values("SELECT version FROM #{sm_table}").map(&:to_i)
 
-        current_conn = ActiveRecord::Base.connection.instance_variable_get(:@current_connection_name).to_s
+        current_conn = ENV['CURRENT_CONNECTION_NAME'] || ''
 
         shard_match = current_conn.match(/^#{ShardTheLove::ENV}_(.*)/)
         migrate_dir = 'migrate'
