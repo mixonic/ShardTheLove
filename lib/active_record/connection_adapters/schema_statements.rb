@@ -7,16 +7,9 @@ module ActiveRecord
         sm_table = quote_table_name(ActiveRecord::Migrator.schema_migrations_table_name)
 
         migrated = select_values("SELECT version FROM #{sm_table}").map(&:to_i)
-        current_conn = nil
-        ActiveRecord::Base.active_connections.each do |conn|
-          begin
-            current_conn = conn[1].
-              instance_variable_get(:@current_connection_name).to_s
-          rescue
-          end
-          break if current_conn
-        end
-        
+
+        current_conn = ActiveRecord::Base.connection.instance_variable_get(:@current_connection_name).to_s
+
         shard_match = current_conn.match(/^#{ShardTheLove::ENV}_(.*)/)
         migrate_dir = 'migrate'
         if shard_match
