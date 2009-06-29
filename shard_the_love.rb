@@ -1,6 +1,6 @@
 # Set up some ENV for merb/rails compatibility, load the library
 
-reqire 'active_record/connection_adapters/abstract/schema_statements'
+require 'active_record/connection_adapters/abstract/schema_statements'
 require File.dirname(__FILE__) + '/lib/active_record/connection_adapters/abstract/schema_statements'
 require File.dirname(__FILE__) + '/lib/shard_the_love'
 
