@@ -19,7 +19,7 @@ module ActiveRecord
             migrate_dir = 'migrate_shards'
           end
         end
-        versions = Dir['db/'+migrate_dir+'/[0-9]*_*.rb'].map do |filename|
+        versions = Dir["#{ShardTheLove::DB_PATH}#{migrate_dir}/[0-9]*_*.rb"].map do |filename|
           filename.split('/').last.split('_').first.to_i
         end
 
