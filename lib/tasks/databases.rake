@@ -256,6 +256,17 @@ namespace :db do
       Rake::Task["db:directory:abort_if_pending_migrations"].invoke
       Rake::Task["db:shards:abort_if_pending_migrations"].invoke
     end
+    
+    namespace :schema do
+
+      desc "Load initial schemas for all databases"
+      task :load do
+        Rake::Task["db:schema:load"].invoke
+        Rake::Task["db:directory:schema:load"].invoke
+        Rake::Task["db:shards:schema:load"].invoke
+      end
+
+    end
 
   end
 
