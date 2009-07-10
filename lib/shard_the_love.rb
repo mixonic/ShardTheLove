@@ -19,6 +19,22 @@ module ShardTheLove
   def self.ar_config
     @@ar_config ||= HashWithIndifferentAccess.new( ActiveRecord::Base.configurations )
   end
+
+  def self.shards(&block)
+    @@shards ||= begin
+      configured_shards = []
+      ShardTheLove.ar_config.each { |key, value|
+        next unless (m = key.to_s.match(/#{ShardTheLove::ENV}_(.+)/)) and
+                    m[1] != 'directory'
+        configured_shards << m[1]
+      }
+      configured_shards
+    end
+    return @@shards unless block_given?
+    @@shards.each do |shard|
+      self.with_shard(shard) { yield(shard) }
+    end
+  end
  
   def self.logger
     LOGGER
