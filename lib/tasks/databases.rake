@@ -63,7 +63,7 @@ namespace :db do
       task :load => ShardTheLove::RAKE_ENV_SETUP do
         ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(ActiveRecord::Base.configurations)
         ENV['CURRENT_CONNECTION_NAME'] = ShardTheLove::ENV+'_directory'  # must let migration code know where to search for migrations
-        ActiveRecord::Base.establish_connection(ENV['ACTIVE_SHARD_CONFIG'])
+        ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[ENV['CURRENT_CONNECTION_NAME']])
         file = ENV['SCHEMA'] || ShardTheLove::DB_PATH+"directory_schema.rb"
         load(file)
       end
