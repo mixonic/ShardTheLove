@@ -6,5 +6,13 @@ require 'mocha'
 
 Spec::Runner.configure do |config|
   config.mock_with :mocha
-  ShardTheLove::LOGGER = ActiveRecord::Base.logger
+
+  config.before(:all) do
+    unless Object.const_defined?(:CONFIG_RUN)
+      ShardTheLove::LOGGER = stub(:info => true )
+      ShardTheLove::ENV = 'test'
+      CONFIG_RUN = true
+    end
+  end
+
 end
