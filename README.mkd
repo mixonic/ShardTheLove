@@ -1,0 +1,309 @@
+ShardTheLove
+============
+
+ShardTheLove is a Rails and Merb plugin for horizontal scaling of databases
+It is built with ActiveRecord- A version somewhere in the git history is 
+compatible with Rails 2.1 and Merb 0.9.  The most up-to-date version has
+been ported to use connection handlers, a feature introduced in Rails and
+ActiveRecord 2.3.  The codebase has been used in a production environment for
+18 months on MySQL.
+
+Sharding, federation, and partitioning all describe a similar horizontal scaling
+strategy (check out this [discussion on exactly what means what][0]).  The
+recommended setup for ShardTheLove is several shards with a directory and
+system database in addition.
+
+     -----------   --------   ---------   ---------
+    |           | |        | |         | |         |
+    | Directory | | System | | Shard 1 | | Shard 2 | etc..
+    |           | |        | |         | |         |
+     -----------   --------   ---------   ---------
+
+The biggest benefit of this architecture is the ability to easily add new
+shards.  Each server type has a specific function:
+
+* *Directory* - Speedy lookups telling you where to find sharded data.
+* *System* - Non-sharded data.  For instance if you shard by users, any data
+not user specific goes here.
+* *Shards* - Sharded data.  If you are sharding by users, user data goes here.
+All shards have the same schema.
+
+Some example models using ShardTheLove to partition by users would be:
+
+    class User < ActiveRecord::Base
+      # This model is on the directory server.
+      #
+      acts_as_directory
+
+      has_many :pets
+      has_many :cellphones
+      has_many :subscriptions
+      has_one :accounts_pricing_plan, :through => :subscriptions
+    end
+
+    class Pet < ActiveRecord::Base
+      # This model is on shards.
+      #
+      acts_as_shard
+
+      belongs_to :user
+    end
+    
+    class Cellphone < ActiveRecord::Base
+      # This model is on shards.
+      #
+      acts_as_shard
+
+      belongs_to :user
+    end
+
+    class Subscription < ActiveRecord::Base
+      # This model is on shards.
+      #
+      acts_as_shard
+
+      belongs_to :user
+      belongs_to :accounts_pricing_plan
+    end
+
+    class AccountPricingPlan < ActiveRecord::Base
+      # This model is not user specific, so it's on the system.
+      #
+
+      has_many :subscriptions
+      has_many :users, :through => :subscriptions
+    end
+
+Keep in mind this is just one way to use ShardTheLove.  Because the default
+database is the system DB, you can start implementing sharding on an exiting
+codebase without a complete refactor right away.
+
+ShardTheLove does not provide explicit support for any specific strategy of
+partitions, but instead aims to provide the building blocks for any strategy.
+Some situations call for the dismissal of a directory and use hashed user id's
+for determining the shard.  For more detail on other approaches:
+
+* [http://blog.maxindelicato.com/2008/12/scalability-strategies-primer-database-sharding.html][3]
+* [http://www.startuplessonslearned.com/2009/01/sharding-for-startups.html][4]
+
+Configuring Databases
+=====================
+
+There isn't much magic here, configuration is pretty straight ahead.  The labels of each
+database connection correspond to it's use.
+
+* `"#{Rails.env}"` - System database
+* `"#{Rails.env}_directory"` - Directory database
+* `"#{Rails.env}_myshard"` - A shard database you can reference as "myshard"
+
+Here is a sample configuration.  In development mode, there are
+two shards labeled `hewey` and `dewey`.  In test mode, there is
+only one shard, labeled `shard`.
+
+    development: &defaults
+      reconnect: true
+      adapter: mysql
+      encoding: utf8
+      database: coolapp_development
+      username: root
+      password:
+      pool: 15 # Increase this, we will need them. 
+
+    development_directory:
+      <<: *defaults
+      database: coolapp_development_directory
+      # The literal db name can be anything
+
+    development_hewey:
+      <<: *defaults
+      database: coolapp_development_hewey
+
+    development_dewey:
+      <<: *defaults
+      database: coolapp_development_dewey
+
+    test:
+      <<: *defaults
+      database: coolapp_test
+
+    test_directory:
+      <<: *defaults
+      database: coolapp_test_directory
+
+    test_shard:
+      <<: *defaults
+      database: coolapp_test_shard
+
+Using ShardTheLove
+==================
+
+Use of ShardTheLove itself is straight forward.  Models declaring `acts_as_shard` will
+look on the database specified in `ShardTheLove.with` blocks.  An example with the models
+and database configuration above:
+
+    # Usage of ShardTheLove
+
+    ShardTheLove.with('hewey') {
+      Pet.all # Only pets on hewey
+    }
+
+    ShardTheLove.with('hewey') {
+      ShardTheLove.current_shard # is 'hewey'
+
+      ShardTheLove.with('dewey') {
+        ShardTheLove.current_shard # is 'dewey'
+
+        Pet.all # Only pets on hewey
+
+        User.all # All users from the directory
+
+        plan = AccountPricingPlan.first # A plan from the system db
+        
+        plan.subscriptions # Only subscriptions from dewey!
+      }
+    }
+
+    # Walking shards is highly discouraged.  It means you make a connection
+    # to every shard.  At scale (lots of shards) this would not work smoothly.
+
+    ShardTheLove.shards # is ['hewey', 'dewey']
+
+    ShardTheLove.shards { |shard|
+      shard == ShardTheLove.current_shard # is true
+      
+      Cellphone.all # gets called twice, once on each shard.
+    }
+
+    # Let's presume the model User has a method or column named
+    # "shard" that tells us what shard user data is on.
+
+    @user = User.find( 'text@example.com' )
+
+    ShardTheLove.with(@user.shard) {
+      # Now we can access that user's data
+      @user.pets
+      @user.cellphones
+    }
+
+
+Setup on Rails
+==============
+
+ShardTheLove is a Rails plugin.  It provides only a basic framework for partitioning,
+and does not prescribe any specific pattern.  Strategies like sharding by user,
+using a lightweight directory, using a `DEFAULT_SHARD`, and `set_a_shard_by_current_user`
+around_filter are recommended, but not required.  Check out the examples directory
+for options to evaluate.
+
+After installing the plugin, you will need three directories for migrations.
+
+* `db/migrate` - System DB migrations.
+* `db/migrate_shards` - Shards DB migrations.
+* `db/migrate_directory` - Directory DB migrations.
+
+`rake db:all:migrate` will migrate all databases.  Run a `rake -T` to see all the options,
+or look in `lib/tasks/databases.rake`.  Shard migrations run once on *all* databases, once
+in the scope of each shard.
+
+Setup on Merb
+=============
+
+Setup on Merb is the same as Rails, except the migration directories are moved:
+
+* `schema/migrate` - System DB migrations.
+* `schema/migrate_shards` - Shards DB migrations.
+* `schema/migrate_directory` - Directory DB migrations.
+
+Using RSpec with ShardTheLove
+=============================
+
+ShardTheLove has not been used extensively with fixtures, but it
+has been used heavily with Mocha and Rspec.
+
+Add the following to your spec/spec_helper.rb in Merb or Rails:
+
+    Spec::Runner.configure do |config|
+
+      # Your RSpec config here...
+      #
+
+      # Transaction setup and teardown for ShardTheLove
+      #
+      config.before(:all) do
+        ShardTheLove.with(DEFAULT_SHARD)
+
+        # The following is only needed in Rails- Merb loads all
+        # the model files without this.
+        # 
+        ar_classes = []
+        Dir.foreach("#{RAILS_ROOT}/app/models/") do |file|
+          next if file =~ /^\./ || !(file =~ /\.rb$/)
+          ar_classes << file.sub(".rb", "").camelize.constantize
+        end
+        ar_classes.each do |ar_class|
+          next unless ar_class.ancestors.include?(ActiveRecord::Base)
+          ar_class.connection_handler
+        end
+      end
+
+      config.before(:each) do
+        (
+          [ ActiveRecord::Base.connection_handler,
+            ShardTheLove.directory_handler ] +
+          ShardTheLove.shard_handlers.collect {|name, handle| handle }
+        ).each do |handler|
+          next unless handler
+          handler.connection_pools.each do |name, pool|
+            pool.connection.begin_db_transaction
+            pool.connection.increment_open_transactions
+          end
+        end
+      end
+
+      config.after(:each) do
+        (
+          [ ActiveRecord::Base.connection_handler,
+            ShardTheLove.directory_handler ] +
+          ShardTheLove.shard_handlers.collect {|name, handle| handle }
+        ).each do |handler|
+          next unless handler
+          handler.connection_pools.each do |name, pool|
+            if pool.connection.open_transactions != 0
+              pool.connection.rollback_db_transaction
+              pool.connection.decrement_open_transactions
+            end
+          end
+        end
+      end
+
+    end
+
+Note that this assumes you are using the initializer to set
+`DEFAULT_SHARD`.  Alternatively you can hardcode a shard matching you
+database configuration.  A default shard is not required, but it simplifies
+most tests where you're concerned about the app logic and not the sharding
+logic.  Of course you should test sharding logic in important places:
+
+    it "should shard with a users shard" do
+      User.stubs(:find).returns(stub(:shard => 'the right one'))
+      ShardTheLove.expects(:with).with('the right one')
+      # now do something...
+    end
+
+Authors
+=======
+
+ShardTheLove was written at [Give Real][1] by [Matthew Beale (mixonic)][2]
+with input by Frank Mashraqi, Patrick Ledbetter, and Frank Macreery.  Further
+development was undertaken by both Frank Macreery and Joseph Aghion.  Of course,
+they wouldn't have done anything this cool without all the other great people
+working there.
+
+ShardTheLove is available under the MIT License, the same license Rails
+is available under.
+
+[0]: http://lethargy.org/~jesus/writes/partitioning-vs.-federation-vs.-sharding
+[1]: http://www.givereal.com
+[2]: http://madhatted.com
+[3]: http://blog.maxindelicato.com/2008/12/scalability-strategies-primer-database-sharding.html
+[4]: http://www.startuplessonslearned.com/2009/01/sharding-for-startups.html
